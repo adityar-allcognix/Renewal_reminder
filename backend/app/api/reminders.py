@@ -5,47 +5,70 @@ Reminders API Routes
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime, date, timedelta
+import math
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import RenewalReminder, Policy, ReminderStatus, ReminderChannel
-from app.schemas import ReminderCreate, ReminderUpdate, ReminderResponse
+from app.schemas import ReminderCreate, ReminderUpdate, ReminderResponse, PaginatedResponse
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[ReminderResponse])
+@router.get("/", response_model=PaginatedResponse[ReminderResponse])
 async def list_reminders(
     status: Optional[ReminderStatus] = None,
     policy_id: Optional[UUID] = None,
     channel: Optional[ReminderChannel] = None,
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, le=500),
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1, le=100),
     db: AsyncSession = Depends(get_db)
 ):
     """List reminders with optional filters."""
+    skip = (page - 1) * size
+    
     query = select(RenewalReminder)
+    count_query = select(func.count()).select_from(RenewalReminder)
     
+    filters = []
     if status:
-        query = query.where(RenewalReminder.status == status)
+        filters.append(RenewalReminder.status == status)
     if policy_id:
-        query = query.where(RenewalReminder.policy_id == policy_id)
+        filters.append(RenewalReminder.policy_id == policy_id)
     if channel:
-        query = query.where(RenewalReminder.channel == channel)
+        filters.append(RenewalReminder.channel == channel)
     if from_date:
-        query = query.where(RenewalReminder.scheduled_date >= from_date)
+        filters.append(RenewalReminder.scheduled_date >= from_date)
     if to_date:
-        query = query.where(RenewalReminder.scheduled_date <= to_date)
+        filters.append(RenewalReminder.scheduled_date <= to_date)
     
-    query = query.order_by(RenewalReminder.scheduled_date).offset(skip).limit(limit)
+    if filters:
+        query = query.where(and_(*filters))
+        count_query = count_query.where(and_(*filters))
+    
+    # Get total count
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+    
+    query = query.order_by(RenewalReminder.scheduled_date).offset(skip).limit(size)
     result = await db.execute(query)
-    return result.scalars().all()
+    items = result.scalars().all()
+    
+    pages = math.ceil(total / size) if size > 0 else 0
+    
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        size=size,
+        pages=pages
+    )
 
 
 @router.get("/pending", response_model=List[ReminderResponse])

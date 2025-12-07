@@ -4,40 +4,62 @@ Customers API Routes
 
 from typing import List, Optional
 from uuid import UUID
+import math
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import Customer
-from app.schemas import CustomerCreate, CustomerUpdate, CustomerResponse
+from app.schemas import CustomerCreate, CustomerUpdate, CustomerResponse, PaginatedResponse
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[CustomerResponse])
+@router.get("/", response_model=PaginatedResponse[CustomerResponse])
 async def list_customers(
     search: Optional[str] = None,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, le=500),
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1, le=100),
     db: AsyncSession = Depends(get_db)
 ):
     """List customers with optional search."""
+    skip = (page - 1) * size
+    
+    # Base query
     query = select(Customer)
+    count_query = select(func.count()).select_from(Customer)
     
     if search:
         search_term = f"%{search}%"
-        query = query.where(
+        filters = (
             Customer.email.ilike(search_term) |
             Customer.first_name.ilike(search_term) |
             Customer.last_name.ilike(search_term)
         )
+        query = query.where(filters)
+        count_query = count_query.where(filters)
     
-    query = query.offset(skip).limit(limit)
+    # Get total count
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+    
+    # Get items
+    query = query.offset(skip).limit(size)
     result = await db.execute(query)
-    return result.scalars().all()
+    items = result.scalars().all()
+    
+    pages = math.ceil(total / size) if size > 0 else 0
+    
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        size=size,
+        pages=pages
+    )
 
 
 @router.get("/{customer_id}", response_model=CustomerResponse)

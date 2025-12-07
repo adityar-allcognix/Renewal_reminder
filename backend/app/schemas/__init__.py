@@ -3,13 +3,21 @@ Pydantic Schemas for API Request/Response
 """
 
 from datetime import datetime, date
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Generic, TypeVar
 from decimal import Decimal
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field
 
 from app.models import PolicyStatus, ReminderStatus, ReminderChannel, OutreachType
 
+T = TypeVar("T")
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: List[T]
+    total: int
+    page: int
+    size: int
+    pages: int
 
 # ===========================================
 # Customer Schemas

@@ -5,50 +5,71 @@ Policies API Routes
 from typing import List, Optional
 from uuid import UUID
 from datetime import date, timedelta
+import math
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import Policy, Customer, PolicyStatus
 from app.schemas import (
     PolicyCreate, PolicyUpdate, PolicyResponse, 
-    PolicyWithCustomer, PolicyDetails, RenewalAmount
+    PolicyWithCustomer, PolicyDetails, RenewalAmount, PaginatedResponse
 )
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[PolicyResponse])
+@router.get("/", response_model=PaginatedResponse[PolicyResponse])
 async def list_policies(
     status: Optional[PolicyStatus] = None,
     customer_id: Optional[UUID] = None,
     renewal_within_days: Optional[int] = None,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, le=500),
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1, le=100),
     db: AsyncSession = Depends(get_db)
 ):
     """List policies with optional filters."""
-    query = select(Policy)
+    skip = (page - 1) * size
     
+    query = select(Policy)
+    count_query = select(func.count()).select_from(Policy)
+    
+    filters = []
     if status:
-        query = query.where(Policy.status == status)
+        filters.append(Policy.status == status)
     if customer_id:
-        query = query.where(Policy.customer_id == customer_id)
+        filters.append(Policy.customer_id == customer_id)
     if renewal_within_days:
         target_date = date.today() + timedelta(days=renewal_within_days)
-        query = query.where(
-            and_(
-                Policy.renewal_date <= target_date,
-                Policy.renewal_date >= date.today()
-            )
-        )
+        filters.append(and_(
+            Policy.renewal_date <= target_date,
+            Policy.renewal_date >= date.today()
+        ))
     
-    query = query.offset(skip).limit(limit)
+    if filters:
+        query = query.where(and_(*filters))
+        count_query = count_query.where(and_(*filters))
+    
+    # Get total count
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+    
+    query = query.offset(skip).limit(size)
     result = await db.execute(query)
-    return result.scalars().all()
+    items = result.scalars().all()
+    
+    pages = math.ceil(total / size) if size > 0 else 0
+    
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        size=size,
+        pages=pages
+    )
 
 
 @router.get("/due-for-renewal", response_model=List[PolicyWithCustomer])

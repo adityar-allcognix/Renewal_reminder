@@ -335,6 +335,60 @@ class CommunicationGateway:
         self.sms_service = SMSService()
         self.whatsapp_service = WhatsAppService()
 
+    async def send_reminder(
+        self,
+        channel: str,
+        customer_data: Dict[str, Any],
+        policy_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Send a reminder through the specified channel.
+        
+        Args:
+            channel: Communication channel (email, sms, whatsapp)
+            customer_data: Customer information
+            policy_data: Policy and renewal information
+            
+        Returns:
+            Result from the channel service
+        """
+        customer_name = customer_data.get("name", "Valued Customer")
+        
+        if channel == "email":
+            return await self.email_service.send_renewal_reminder(
+                to_email=customer_data["email"],
+                customer_name=customer_name,
+                policy_number=policy_data["policy_number"],
+                renewal_date=policy_data["renewal_date"],
+                renewal_amount=policy_data["renewal_amount"],
+                days_until_renewal=policy_data["days_until_renewal"]
+            )
+        
+        elif channel == "sms":
+            return await self.sms_service.send_renewal_reminder(
+                to_number=customer_data["phone"],
+                customer_name=customer_name,
+                policy_number=policy_data["policy_number"],
+                renewal_date=policy_data["renewal_date"],
+                days_until_renewal=policy_data["days_until_renewal"]
+            )
+        
+        elif channel == "whatsapp":
+            return await self.whatsapp_service.send_renewal_reminder(
+                to_number=customer_data["phone"],
+                customer_name=customer_name,
+                policy_number=policy_data["policy_number"],
+                renewal_date=policy_data["renewal_date"],
+                renewal_amount=policy_data["renewal_amount"],
+                days_until_renewal=policy_data["days_until_renewal"]
+            )
+        
+        else:
+            return {
+                "status": "failed",
+                "error": f"Unknown channel: {channel}"
+            }
+
 
 # ===========================================
 # Helper function for sending reminders
@@ -411,57 +465,3 @@ async def send_reminder_message(reminder, db) -> bool:
         return False
     
     return result.get("status") in ["sent", "delivered"]
-    
-    async def send_reminder(
-        self,
-        channel: str,
-        customer_data: Dict[str, Any],
-        policy_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Send a reminder through the specified channel.
-        
-        Args:
-            channel: Communication channel (email, sms, whatsapp)
-            customer_data: Customer information
-            policy_data: Policy and renewal information
-            
-        Returns:
-            Result from the channel service
-        """
-        customer_name = customer_data.get("name", "Valued Customer")
-        
-        if channel == "email":
-            return await self.email_service.send_renewal_reminder(
-                to_email=customer_data["email"],
-                customer_name=customer_name,
-                policy_number=policy_data["policy_number"],
-                renewal_date=policy_data["renewal_date"],
-                renewal_amount=policy_data["renewal_amount"],
-                days_until_renewal=policy_data["days_until_renewal"]
-            )
-        
-        elif channel == "sms":
-            return await self.sms_service.send_renewal_reminder(
-                to_number=customer_data["phone"],
-                customer_name=customer_name,
-                policy_number=policy_data["policy_number"],
-                renewal_date=policy_data["renewal_date"],
-                days_until_renewal=policy_data["days_until_renewal"]
-            )
-        
-        elif channel == "whatsapp":
-            return await self.whatsapp_service.send_renewal_reminder(
-                to_number=customer_data["phone"],
-                customer_name=customer_name,
-                policy_number=policy_data["policy_number"],
-                renewal_date=policy_data["renewal_date"],
-                renewal_amount=policy_data["renewal_amount"],
-                days_until_renewal=policy_data["days_until_renewal"]
-            )
-        
-        else:
-            return {
-                "status": "failed",
-                "error": f"Unknown channel: {channel}"
-            }
