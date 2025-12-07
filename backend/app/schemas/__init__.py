@@ -60,6 +60,7 @@ class CustomerUpdate(BaseModel):
 class CustomerResponse(CustomerBase):
     """Schema for customer response."""
     id: UUID
+    full_name: str
     engagement_score: float
     last_interaction_at: Optional[datetime]
     created_at: datetime
@@ -158,6 +159,7 @@ class ReminderResponse(ReminderBase):
     message_content: Optional[str]
     error_message: Optional[str]
     retry_count: int
+    response_status: Optional[str] = "no_response"
     created_at: datetime
     updated_at: datetime
     
