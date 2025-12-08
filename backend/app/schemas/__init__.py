@@ -173,7 +173,7 @@ class ReminderResponse(ReminderBase):
 class ChatMessage(BaseModel):
     """Chat message schema."""
     customer_id: UUID
-    session_id: str
+    session_id: Optional[str] = None
     message: str
 
 

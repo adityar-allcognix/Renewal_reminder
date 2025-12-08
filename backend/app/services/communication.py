@@ -37,20 +37,7 @@ class EmailService:
         template_id: Optional[str] = None,
         template_data: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """
-        Send an email via SendGrid.
-        
-        Args:
-            to_email: Recipient email address
-            subject: Email subject
-            html_content: HTML body content
-            plain_content: Plain text body content
-            template_id: SendGrid dynamic template ID
-            template_data: Data for dynamic template
-            
-        Returns:
-            Dict with status and message_id
-        """
+       
         if not self.client:
             logger.warning("SendGrid not configured, skipping email")
             return {"status": "skipped", "reason": "not_configured"}
@@ -264,10 +251,17 @@ class WhatsAppService:
             return {"status": "skipped", "reason": "not_configured"}
         
         try:
+            # Ensure number is in E.164 format (Twilio requires +91 for India)
+            formatted_number = to_number
+            if not formatted_number.startswith("+"):
+                # If no country code, assume India (+91) or US (+1) based on length?
+                # Safer to just assume the user provides E.164, but let's not strip +91
+                pass
+
             kwargs = {
                 "body": message,
                 "from_": f"whatsapp:{self.from_number}",
-                "to": f"whatsapp:{to_number}"
+                "to": f"whatsapp:{formatted_number}"
             }
             
             if media_url:

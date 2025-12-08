@@ -4,7 +4,7 @@ Communication Tasks - Celery tasks for sending messages and retention outreach
 
 import asyncio
 from datetime import datetime, date, timedelta
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import structlog
 
 from app.celery_app import celery_app
@@ -336,3 +336,89 @@ def send_renewal_confirmation(
             return result
     
     return run_async(_send())
+
+# -------------------------------------------------------------------------
+# User Requested Tasks (Adapted)
+# -------------------------------------------------------------------------
+
+@celery_app.task(
+    name="tasks.send_email_sendgrid",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60 * 2,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=60 * 10,
+    retry_jitter=True,
+    acks_late=True
+)
+def send_email_sendgrid_task(
+    self,
+    to_email: str,
+    subject: str,
+    html_content: str,
+    from_email: Optional[str] = None,
+    app_name: Optional[str] = None,
+    plain_content: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None
+):
+    """Send email via SendGrid (Adapted from user request)."""
+    task_id = self.request.id
+    logger.info(f"Task {task_id}: Sending email to {to_email}")
+    
+    async def _send():
+        from app.services.communication import EmailService
+        service = EmailService()
+        # Note: Ignoring from_email override for now as Service uses config default
+        # Ignoring app_name and metadata as Service doesn't use them yet
+        result = await service.send_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=html_content,
+            plain_content=plain_content
+        )
+        return result
+
+    try:
+        result = run_async(_send())
+        return result
+    except Exception as e:
+        logger.error(f"Task {task_id} failed: {str(e)}")
+        raise self.retry(exc=e)
+
+
+@celery_app.task(
+    name="tasks.send_sms_twilio",
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60 * 2,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=60 * 10,
+    retry_jitter=True,
+    acks_late=True
+)
+def send_sms_twilio_task(
+    self,
+    to_number: str,
+    message_body: str,
+    from_number: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None
+):
+    """Send SMS via Twilio (Adapted from user request)."""
+    task_id = self.request.id
+    logger.info(f"Task {task_id}: Sending SMS to {to_number}")
+    
+    async def _send():
+        from app.services.communication import SMSService
+        service = SMSService()
+        # Note: Ignoring from_number override for now as Service uses config default
+        result = await service.send_sms(to_number, message_body)
+        return result
+
+    try:
+        result = run_async(_send())
+        return result
+    except Exception as e:
+        logger.error(f"Task {task_id} failed: {str(e)}")
+        raise self.retry(exc=e)

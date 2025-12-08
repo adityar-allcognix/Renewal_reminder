@@ -10,7 +10,7 @@ import structlog
 from app.config import settings
 from app.api import (
     policies, customers, reminders, chat, analytics, health, auth,
-    test_reminders, customer_public, document_upload, test_token
+    test_reminders, customer_public, document_upload, test_token, email_sms
 )
 from app.database import init_db
 
@@ -72,6 +72,7 @@ app.include_router(test_reminders.router, prefix="/api/test", tags=["Test Remind
 app.include_router(customer_public.router, prefix="/api/public", tags=["Public"])
 app.include_router(document_upload.router, prefix="/api/public", tags=["Document Upload"])
 app.include_router(test_token.router, prefix="/api/test-token", tags=["Test Token"])
+app.include_router(email_sms.router, prefix="/api", tags=["Email & SMS"])
 
 
 @app.get("/")

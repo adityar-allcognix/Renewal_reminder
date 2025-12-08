@@ -1,0 +1,22 @@
+# Send SMS Reminder
+curl -X POST "http://localhost:8080/api/test/sms" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "to_phone": "+919209793522",
+           "customer_name": "Aditya Raut",
+           "policy_number": "POL-TEST-101",
+           "renewal_date": "2025-01-15",
+           "days_until_renewal": 30
+         }'
+
+# Send WhatsApp Reminder
+curl -X POST "http://localhost:8080/api/test/whatsapp" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "to_phone": "+919209793522",
+           "customer_name": "Aditya Raut",
+           "policy_number": "POL-TEST-101",
+           "renewal_date": "2025-01-15",
+           "renewal_amount": 15000.00,
+           "days_until_renewal": 30
+         }'

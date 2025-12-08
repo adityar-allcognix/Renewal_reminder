@@ -3,6 +3,7 @@ Chat API Routes - AI Agent Interface
 """
 
 import time
+import uuid
 from uuid import UUID
 from datetime import datetime
 
@@ -29,13 +30,16 @@ async def send_chat_message(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     
+    # Generate session ID if not provided
+    session_id = message.session_id or str(uuid.uuid4())
+    
     # Import AI agent service
     from app.services.ai_agent import process_customer_query
     
     # Process message through AI agent
     result = await process_customer_query(
         customer_id=message.customer_id,
-        session_id=message.session_id,
+        session_id=session_id,
         query=message.message,
         db=db
     )
@@ -45,7 +49,7 @@ async def send_chat_message(
     # Log interaction
     interaction = InteractionLog(
         customer_id=message.customer_id,
-        session_id=message.session_id,
+        session_id=session_id,
         user_query=message.message,
         agent_response=result["response"],
         detected_intent=result.get("intent"),
@@ -61,7 +65,7 @@ async def send_chat_message(
     await db.commit()
     
     return ChatResponse(
-        session_id=message.session_id,
+        session_id=session_id,
         response=result["response"],
         tools_used=result.get("tools_used", []),
         context=result.get("context"),
