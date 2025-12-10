@@ -73,3 +73,5 @@ test_doc.pdf
 aditya_doc.pdf
 backend/test_doc.pdf
 backend/aditya_doc.pdf
+backend/node_modules/
+backend/node_modules
