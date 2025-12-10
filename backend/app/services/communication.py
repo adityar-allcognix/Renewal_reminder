@@ -149,6 +149,15 @@ class SMSService:
             self._client = Client(self.account_sid, self.auth_token)
         return self._client
     
+    def _format_number(self, number: str) -> str:
+        """Ensure number is in E.164 format."""
+        cleaned = number.strip()
+        if not cleaned.startswith("+"):
+            # Default to India (+91) if no country code provided
+            # This is a heuristic based on the user base
+            return f"+91{cleaned}"
+        return cleaned
+
     async def send_sms(
         self,
         to_number: str,
@@ -168,16 +177,19 @@ class SMSService:
             logger.warning("Twilio not configured, skipping SMS")
             return {"status": "skipped", "reason": "not_configured"}
         
+        formatted_number = self._format_number(to_number)
+        
         try:
             sms = self.client.messages.create(
                 body=message,
                 from_=self.from_number,
-                to=to_number
+                to=formatted_number
             )
             
             logger.info(
                 "SMS sent",
-                to_number=to_number,
+                to_number=formatted_number,
+                original_number=to_number,
                 message_sid=sms.sid
             )
             
@@ -188,7 +200,7 @@ class SMSService:
             }
             
         except Exception as e:
-            logger.error("SMS send failed", error=str(e), to_number=to_number)
+            logger.error("SMS send failed", error=str(e), to_number=formatted_number)
             return {
                 "status": "failed",
                 "error": str(e)
@@ -229,6 +241,14 @@ class WhatsAppService:
             self._client = Client(self.account_sid, self.auth_token)
         return self._client
     
+    def _format_number(self, number: str) -> str:
+        """Ensure number is in E.164 format."""
+        cleaned = number.strip()
+        if not cleaned.startswith("+"):
+            # Default to India (+91) if no country code provided
+            return f"+91{cleaned}"
+        return cleaned
+
     async def send_whatsapp(
         self,
         to_number: str,
@@ -250,14 +270,9 @@ class WhatsAppService:
             logger.warning("Twilio WhatsApp not configured, skipping")
             return {"status": "skipped", "reason": "not_configured"}
         
+        formatted_number = self._format_number(to_number)
+        
         try:
-            # Ensure number is in E.164 format (Twilio requires +91 for India)
-            formatted_number = to_number
-            if not formatted_number.startswith("+"):
-                # If no country code, assume India (+91) or US (+1) based on length?
-                # Safer to just assume the user provides E.164, but let's not strip +91
-                pass
-
             kwargs = {
                 "body": message,
                 "from_": f"whatsapp:{self.from_number}",
@@ -271,7 +286,8 @@ class WhatsAppService:
             
             logger.info(
                 "WhatsApp sent",
-                to_number=to_number,
+                to_number=formatted_number,
+                original_number=to_number,
                 message_sid=whatsapp_message.sid
             )
             
@@ -282,7 +298,7 @@ class WhatsAppService:
             }
             
         except Exception as e:
-            logger.error("WhatsApp send failed", error=str(e), to_number=to_number)
+            logger.error("WhatsApp send failed", error=str(e), to_number=formatted_number)
             return {
                 "status": "failed",
                 "error": str(e)

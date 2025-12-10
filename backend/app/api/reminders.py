@@ -33,7 +33,9 @@ async def list_reminders(
     """List reminders with optional filters."""
     skip = (page - 1) * size
     
-    query = select(RenewalReminder)
+    query = select(RenewalReminder).options(
+        selectinload(RenewalReminder.policy).selectinload(Policy.customer)
+    )
     count_query = select(func.count()).select_from(RenewalReminder)
     
     filters = []
@@ -99,7 +101,11 @@ async def get_reminder(
     db: AsyncSession = Depends(get_db)
 ):
     """Get a specific reminder by ID."""
-    reminder = await db.get(RenewalReminder, reminder_id)
+    # Use select with eager loading
+    query = select(RenewalReminder).options(selectinload(RenewalReminder.policy)).where(RenewalReminder.id == reminder_id)
+    result = await db.execute(query)
+    reminder = result.scalar_one_or_none()
+
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
     return reminder
@@ -111,8 +117,11 @@ async def create_reminder(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new reminder."""
-    # Verify policy exists
-    policy = await db.get(Policy, reminder_data.policy_id)
+    # Verify policy exists with eager loading for customer
+    query = select(Policy).options(selectinload(Policy.customer)).where(Policy.id == reminder_data.policy_id)
+    result = await db.execute(query)
+    policy = result.scalar_one_or_none()
+    
     if not policy:
         raise HTTPException(status_code=404, detail="Policy not found")
     
@@ -120,6 +129,9 @@ async def create_reminder(
     db.add(reminder)
     await db.commit()
     await db.refresh(reminder)
+    
+    # Set policy explicitly to avoid MissingGreenlet error
+    reminder.policy = policy
     
     return reminder
 
@@ -182,7 +194,11 @@ async def update_reminder(
     db: AsyncSession = Depends(get_db)
 ):
     """Update a reminder."""
-    reminder = await db.get(RenewalReminder, reminder_id)
+    # Use select with eager loading
+    query = select(RenewalReminder).options(selectinload(RenewalReminder.policy)).where(RenewalReminder.id == reminder_id)
+    result = await db.execute(query)
+    reminder = result.scalar_one_or_none()
+
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
     
@@ -202,7 +218,14 @@ async def send_reminder(
     db: AsyncSession = Depends(get_db)
 ):
     """Trigger sending of a specific reminder."""
-    reminder = await db.get(RenewalReminder, reminder_id)
+    # Use select with eager loading instead of get to avoid MissingGreenlet error
+    query = select(RenewalReminder).options(
+        selectinload(RenewalReminder.policy).selectinload(Policy.customer)
+    ).where(RenewalReminder.id == reminder_id)
+    
+    result = await db.execute(query)
+    reminder = result.scalar_one_or_none()
+
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
     
@@ -228,9 +251,8 @@ async def send_reminder(
     await db.refresh(reminder)
     
     return {
-        "success": success,
-        "reminder_id": str(reminder_id),
-        "status": reminder.status.value
+        "status": "success" if success else "failed",
+        "reminder_id": reminder_id
     }
 
 

@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     # Security
     JWT_SECRET_KEY: str = "your-jwt-secret-key"
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
     
     # CORS - stored as comma-separated string in .env
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8000"

@@ -34,7 +34,7 @@ async def list_policies(
     """List policies with optional filters."""
     skip = (page - 1) * size
     
-    query = select(Policy)
+    query = select(Policy).options(selectinload(Policy.customer))
     count_query = select(func.count()).select_from(Policy)
     
     filters = []
@@ -160,6 +160,9 @@ async def create_policy(
     await db.commit()
     await db.refresh(policy)
     
+    # Set the customer explicitly to avoid MissingGreenlet error during serialization
+    policy.customer = customer
+    
     return policy
 
 
@@ -170,7 +173,11 @@ async def update_policy(
     db: AsyncSession = Depends(get_db)
 ):
     """Update a policy."""
-    policy = await db.get(Policy, policy_id)
+    # Use select with eager loading
+    query = select(Policy).options(selectinload(Policy.customer)).where(Policy.id == policy_id)
+    result = await db.execute(query)
+    policy = result.scalar_one_or_none()
+
     if not policy:
         raise HTTPException(status_code=404, detail="Policy not found")
     
@@ -190,7 +197,11 @@ async def renew_policy(
     db: AsyncSession = Depends(get_db)
 ):
     """Process policy renewal."""
-    policy = await db.get(Policy, policy_id)
+    # Use select with eager loading
+    query = select(Policy).options(selectinload(Policy.customer)).where(Policy.id == policy_id)
+    result = await db.execute(query)
+    policy = result.scalar_one_or_none()
+
     if not policy:
         raise HTTPException(status_code=404, detail="Policy not found")
     

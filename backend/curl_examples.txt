@@ -1,4 +1,5 @@
-# Send SMS Reminder
+sms
+
 curl -X POST "http://localhost:8080/api/test/sms" \
      -H "Content-Type: application/json" \
      -d '{
@@ -9,7 +10,8 @@ curl -X POST "http://localhost:8080/api/test/sms" \
            "days_until_renewal": 30
          }'
 
-# Send WhatsApp Reminder
+whatsApp
+
 curl -X POST "http://localhost:8080/api/test/whatsapp" \
      -H "Content-Type: application/json" \
      -d '{
@@ -19,4 +21,14 @@ curl -X POST "http://localhost:8080/api/test/whatsapp" \
            "renewal_date": "2025-01-15",
            "renewal_amount": 15000.00,
            "days_until_renewal": 30
+         }'
+
+email
+
+curl -X POST "http://localhost:8081/api/email-sms/send-email-sendgrid" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "to_email": "rautaditya2606@gmail.com",
+           "subject": "Test Reminder Email",
+           "html_content": "<h1>This is a test reminder</h1><p>Please renew your policy.</p>"
          }'

@@ -116,6 +116,7 @@ class PolicyResponse(PolicyBase):
     extra_data: Optional[Dict[str, Any]]
     created_at: datetime
     updated_at: datetime
+    customer: Optional["CustomerResponse"] = None
     
     class Config:
         from_attributes = True
@@ -162,6 +163,7 @@ class ReminderResponse(ReminderBase):
     response_status: Optional[str] = "no_response"
     created_at: datetime
     updated_at: datetime
+    policy: Optional["PolicyResponse"] = None
     
     class Config:
         from_attributes = True
