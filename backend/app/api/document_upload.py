@@ -29,11 +29,12 @@ async def upload_document(
             detail="Invalid or expired link."
         )
     
-    # Check if token is for document upload (assuming we add this type)
-    # For now, we can reuse POLICY_VIEW or add a new type
-    # Let's assume we want to be strict about token types
-    # if customer_token.token_type != CustomerTokenType.DOCUMENT_UPLOAD:
-    #     raise HTTPException(status_code=400, detail="Invalid token type")
+    # Check if token is for document upload
+    if customer_token.token_type != CustomerTokenType.DOCUMENT_UPLOAD:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This link is not valid for document uploads."
+        )
 
     # Validate file size (e.g., 10MB limit)
     MAX_FILE_SIZE = 10 * 1024 * 1024

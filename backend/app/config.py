@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     TWILIO_PHONE_NUMBER: str = ""
     TWILIO_WHATSAPP_NUMBER: str = ""
     
+    # Frontend URL (for generating links)
+    FRONTEND_URL: str = "http://localhost:3000"
+    
     # Scheduler
     SCHEDULER_ENABLED: bool = True
     REMINDER_CHECK_INTERVAL_MINUTES: int = 60

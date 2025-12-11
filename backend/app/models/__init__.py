@@ -367,10 +367,11 @@ class AuditLog(Base):
 # ===========================================
 class CustomerTokenType(str, enum.Enum):
     """Customer token type enumeration."""
-    RENEWAL_CONFIRMATION = "renewal_confirmation"
-    POLICY_VIEW = "policy_view"
-    CONTACT_UPDATE = "contact_update"
-    UNSUBSCRIBE = "unsubscribe"
+    RENEWAL_CONFIRMATION = "RENEWAL_CONFIRMATION"
+    POLICY_VIEW = "POLICY_VIEW"
+    CONTACT_UPDATE = "CONTACT_UPDATE"
+    UNSUBSCRIBE = "UNSUBSCRIBE"
+    DOCUMENT_UPLOAD = "DOCUMENT_UPLOAD"
 
 
 class CustomerToken(Base):
