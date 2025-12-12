@@ -53,7 +53,7 @@ async def find_customer_by_phone(
 async def check_rate_limit(
     db: AsyncSession,
     customer_id,
-    max_requests: int = 3,
+    max_requests: int = 10,
     time_window_hours: int = 24
 ) -> tuple[bool, int]:
     """
@@ -181,8 +181,8 @@ async def handle_incoming_sms(
     is_allowed, request_count = await check_rate_limit(
         db, 
         customer.id,
-        max_requests=3,
-        time_window_hours=24
+        max_requests=999,
+        time_window_hours=1
     )
     
     if not is_allowed:

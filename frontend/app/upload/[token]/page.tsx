@@ -3,6 +3,20 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 
+interface UploadResponse {
+  message: string;
+  filename: string;
+  policy_holder_name?: string;
+  policy_number?: string;
+  name_matches?: boolean;
+  name_similarity?: number;
+  old_expiry_date?: string;
+  new_start_date?: string;
+  new_expiry_date?: string;
+  validation_passed?: boolean;
+  extracted_text?: string;
+}
+
 export default function DocumentUploadPage() {
   const params = useParams();
   const token = params?.token as string;
@@ -10,6 +24,7 @@ export default function DocumentUploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
 
@@ -88,11 +103,20 @@ export default function DocumentUploadPage() {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Upload failed');
+        let errorMessage = 'Upload failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorMessage;
+        } catch {
+          // If JSON parsing fails, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
+      const result = await response.json();
       setUploadSuccess(true);
+      setUploadResult(result);
       setFile(null);
     } catch (err: any) {
       setError(err.message || 'Failed to upload document');
@@ -105,6 +129,20 @@ export default function DocumentUploadPage() {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  };
+
+  const formatDate = (dateString: string | null): string => {
+    if (!dateString) return 'Not found';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return dateString;
+    }
   };
 
   if (!token) {
@@ -120,8 +158,8 @@ export default function DocumentUploadPage() {
 
   if (uploadSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="max-w-2xl w-full bg-white rounded-lg shadow-lg p-8">
           <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
             <svg
               className="h-8 w-8 text-green-600"
@@ -137,19 +175,116 @@ export default function DocumentUploadPage() {
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Successful!</h2>
-          <p className="text-gray-600 mb-6">
-            Your document has been uploaded successfully. You can close this window now.
+          <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">Upload Successful!</h2>
+          <p className="text-gray-600 mb-6 text-center">
+            Your document has been uploaded and processed successfully.
           </p>
-          <button
-            onClick={() => {
-              setUploadSuccess(false);
-              setFile(null);
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Upload Another Document
-          </button>
+
+          {/* Validation Status */}
+          {uploadResult?.validation_passed ? (
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-semibold text-green-900">Document Validated ✓</span>
+              </div>
+              <p className="text-sm text-green-700 mt-1">Policy holder name matches our records</p>
+            </div>
+          ) : (
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center">
+                <svg className="h-5 w-5 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="font-semibold text-yellow-900">Manual Review Required</span>
+              </div>
+              <p className="text-sm text-yellow-700 mt-1">
+                {uploadResult?.name_matches === false 
+                  ? "Policy holder name doesn't match. Our team will review your document."
+                  : "Unable to extract all details. Our team will review your document."}
+              </p>
+            </div>
+          )}
+
+          {/* Document Details */}
+          <div className="space-y-4 mb-6">
+            {/* Policy Holder Name */}
+            {uploadResult?.policy_holder_name && (
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">Policy Holder Name</span>
+                  <span className="text-sm font-semibold text-gray-900">{uploadResult.policy_holder_name}</span>
+                </div>
+                {uploadResult.name_similarity !== undefined && (
+                  <div className="mt-1 text-xs text-gray-500">
+                    Match confidence: {Math.round(uploadResult.name_similarity * 100)}%
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Policy Number */}
+            {uploadResult?.policy_number && (
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-600">Policy Number</span>
+                  <span className="text-sm font-semibold text-gray-900 font-mono">{uploadResult.policy_number}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Old Expiry Date */}
+            {uploadResult?.old_expiry_date && (
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-blue-700">Current Expiry Date</span>
+                  <span className="text-sm font-semibold text-blue-900">{formatDate(uploadResult.old_expiry_date)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* New Renewal Period */}
+            {uploadResult?.new_start_date && uploadResult?.new_expiry_date && (
+              <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                  <svg className="h-5 w-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  New Renewal Period
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700">New Start Date</span>
+                    <span className="text-sm font-bold text-green-700">{formatDate(uploadResult.new_start_date)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700">New Expiry Date</span>
+                    <span className="text-sm font-bold text-blue-700">{formatDate(uploadResult.new_expiry_date)}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-600 mt-3 italic">
+                  * New policy starts 1 day after current expiry (Standard Rule)
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="text-center">
+            <p className="text-sm text-gray-500 mb-4">
+              You can close this window now.
+            </p>
+            <button
+              onClick={() => {
+                setUploadSuccess(false);
+                setUploadResult(null);
+                setFile(null);
+              }}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Upload Another Document
+            </button>
+          </div>
         </div>
       </div>
     );

@@ -12,6 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -115,11 +116,13 @@ async def validate_token(
     db: AsyncSession,
     token: str
 ) -> Optional[CustomerToken]:
-    """Validate a customer token."""
+    """Validate a customer token and eagerly load customer relationship."""
     result = await db.execute(
-        select(CustomerToken).where(
+        select(CustomerToken)
+        .options(joinedload(CustomerToken.customer))
+        .where(
             CustomerToken.token == token,
-            CustomerToken.is_used == False,
+            CustomerToken.is_used.is_(False),
             CustomerToken.expires_at > datetime.utcnow()
         )
     )

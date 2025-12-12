@@ -408,3 +408,7 @@ class CustomerToken(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
     )
+    
+    # Relationships
+    customer: Mapped["Customer"] = relationship("Customer")
+    policy: Mapped[Optional["Policy"]] = relationship("Policy")
